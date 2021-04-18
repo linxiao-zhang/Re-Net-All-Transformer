@@ -3,8 +3,10 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from Aggregator import RGCNAggregator_global
+from informer_model import Informer
 from utils import *
 import time
+
 
 class TransformerHidden(nn.Module):
     def __init__(self, d_model, target_size, nhead):
@@ -26,6 +28,7 @@ class TransformerHidden(nn.Module):
         final_result = torch.cat(target_list, dim=0)
         return self.linear(final_result).unsqueeze(0)
 
+
 class RENet_global(nn.Module):
     def __init__(self, in_dim, h_dim, num_rels, dropout=0, model=0, seq_len=10, num_k=10, maxpool=1):
         super(RENet_global, self).__init__()
@@ -44,16 +47,16 @@ class RENet_global(nn.Module):
         self.transformer_hidden = TransformerHidden(d_model=h_dim, nhead=10, target_size=h_dim)
         # 考虑是否换成LSTM或者Transformer
         self.encoder_global = nn.GRU(h_dim, h_dim, batch_first=True)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=h_dim,nhead=8)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer,num_layers=6)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=h_dim, nhead=8)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
+        self.informer = Informer(enc_in=h_dim, dec_in=h_dim, c_out=h_dim, out_len=h_dim, seq_len=64,
+                                 label_len=32)
 
         self.aggregator = RGCNAggregator_global(h_dim, dropout, in_dim, num_rels, 100, model, seq_len, maxpool)
 
         self.linear_s = nn.Linear(h_dim, in_dim)
         self.linear_o = nn.Linear(h_dim, in_dim)
         self.global_emb = None
-
-
 
     def forward(self, t_list, true_prob_s, true_prob_o, graph_dict, subject=True):
         if subject:
@@ -69,11 +72,12 @@ class RENet_global(nn.Module):
 
         packed_input = self.aggregator(sorted_t, self.ent_embeds, graph_dict, reverse=reverse)
 
-#        tt, s_q = self.encoder_global(packed_input)
-#        transformer_hidden = TransformerHidden(d_model=self.h_dim, nhead=10, target_size=self.h_dim)
-#        print("packed_input_shape")
-#        print(packed_input.shape)
-        s_q = self.transformer_hidden(packed_input)
+        #        tt, s_q = self.encoder_global(packed_input)
+        #        transformer_hidden = TransformerHidden(d_model=self.h_dim, nhead=10, target_size=self.h_dim)
+        #        print("packed_input_shape")
+        #        print(packed_input.shape)
+        # s_q = self.transformer_hidden(packed_input)
+        s_q = self.informer(packed_input, (packed_input != 0))
         s_q = s_q.squeeze()
         s_q = torch.cat((s_q, torch.zeros(len(t_list) - len(s_q), self.h_dim).cuda()), dim=0)
         pred = linear(s_q)
@@ -95,11 +99,9 @@ class RENet_global(nn.Module):
             global_emb[prev_t] = emb.detach_()
             prev_t = t
 
-        global_emb[t_list[-1]], _,_ = self.predict(t_list[-1] + int(time_unit), graph_dict)
+        global_emb[t_list[-1]], _, _ = self.predict(t_list[-1] + int(time_unit), graph_dict)
         global_emb[t_list[-1]].detach_()
         return global_emb
-
-
 
     """
     Prediction function in testing
@@ -120,6 +122,3 @@ class RENet_global(nn.Module):
 
     def update_global_emb(self, t, graph_dict):
         pass
-
-
-
