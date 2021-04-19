@@ -23,6 +23,7 @@ class Informer(nn.Module):
         # Encoding
         self.enc_embedding = DataEmbedding(enc_in, d_model, embed, freq, dropout)
         self.dec_embedding = DataEmbedding(dec_in, d_model, embed, freq, dropout)
+        self.linear = nn.Linear(enc_in, d_model)
         # Attention
         Attn = ProbAttention if attn == 'prob' else FullAttention
         # Encoder
@@ -67,7 +68,7 @@ class Informer(nn.Module):
 
     def forward(self, x_enc, x_mark_enc,
                 enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
-        enc_out = x_enc
+        enc_out = self.linear(x_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
         dec_out = self.projection(enc_out)
 
@@ -86,6 +87,14 @@ class Informer(nn.Module):
         #     return dec_out[:, -self.pred_len:, :], attns
         # else:
         #     return dec_out[:, -self.pred_len:, :]  # [B, L, D]
+
+
+# informer = Informer(enc_in=200, dec_in=200, c_out=100, out_len=100, seq_len=32, label_len=16)
+# x_enc = torch.rand(10, 32, 200)
+# x_mark_enc = (x_enc != 0)
+#
+# result = informer(x_enc, x_mark_enc)
+# print(result.shape)
 
 
 class InformerStack(nn.Module):
