@@ -11,7 +11,7 @@ from embed import DataEmbedding
 
 class Informer(nn.Module):
     def __init__(self, enc_in, dec_in, c_out, seq_len, label_len, out_len,
-                 factor=5, d_model=512, n_heads=8, e_layers=3, d_layers=2, d_ff=512,
+                 factor=5, d_model=512, n_heads=8, e_layers=12, d_layers=2, d_ff=512,
                  dropout=0.0, attn='prob', embed='fixed', freq='h', activation='gelu',
                  output_attention=True, distil=True,
                  device=torch.device('cuda:0')):
@@ -70,7 +70,8 @@ class Informer(nn.Module):
                 enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
         enc_out = self.linear(x_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
-        dec_out = self.projection(enc_out)
+        dec_out = enc_out
+        # dec_out = self.projection(enc_out)
 
         # dec_out = self.dec_embedding(x_dec, x_mark_dec)
         # dec_out = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask)
@@ -81,7 +82,7 @@ class Informer(nn.Module):
             target_vector = dec_out[i][-1]
             target_list.append(target_vector.unsqueeze(0))
         final_result = torch.cat(target_list, dim=0)
-        return final_result.unsqueeze(0)
+        return self.projection(final_result).unsqueeze(0)
 
         # if self.output_attention:
         #     return dec_out[:, -self.pred_len:, :], attns
