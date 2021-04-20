@@ -77,7 +77,7 @@ class Informer(nn.Module):
         target_list = []
 
         for i in range(dec_out.shape[0]):
-            target_vector = dec_out[i][0]
+            target_vector = dec_out[i][-1]
             target_list.append(target_vector.unsqueeze(0))
         final_result = torch.cat(target_list, dim=0)
         return self.projection(final_result).unsqueeze(0)
