@@ -11,7 +11,7 @@ from embed import DataEmbedding
 
 class Informer(nn.Module):
     def __init__(self, enc_in, dec_in, c_out, seq_len, label_len, out_len,
-                 factor=5, d_model=512, n_heads=8, e_layers=12, d_layers=2, d_ff=512,
+                 factor=5, d_model=512, n_heads=8, e_layers=12, d_layers=12, d_ff=512,
                  dropout=0.0, attn='prob', embed='fixed', freq='h', activation='gelu',
                  output_attention=True, distil=True,
                  device=torch.device('cuda:0')):
@@ -71,11 +71,9 @@ class Informer(nn.Module):
         enc_out = self.linear(x_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
         dec_out = enc_out
-        # dec_out = self.projection(enc_out)
+        dec_out = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask)
+        # return dec_out[:, -self.pred_len:, :]
 
-        # dec_out = self.dec_embedding(x_dec, x_mark_dec)
-        # dec_out = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask)
-        # dec_out = self.projection(dec_out)
         target_list = []
 
         for i in range(dec_out.shape[0]):
